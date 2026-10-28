@@ -143,7 +143,7 @@ h1{font-size:32px;font-weight:600;margin:0;line-height:1.15;letter-spacing:-0.01
 .section-label b{color:var(--ink-soft);font-weight:600;}
 .section-label .ln{flex:1;height:1px;background:var(--line);}
 
-.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--surface);}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--surface);}
 .kpi{padding:20px 18px;border-right:1px solid var(--line);}
 .kpi:last-child{border-right:none;}
 .kpi .num{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:-0.01em;}
@@ -167,10 +167,26 @@ h1{font-size:32px;font-weight:600;margin:0;line-height:1.15;letter-spacing:-0.01
 .tabpane.active{display:block;}
 
 /* ================= Charts ================= */
-.chart-scroll{overflow-x:auto;padding-bottom:4px;margin:0 -4px;}
-.chart-block{margin-top:12px;}
+.chart-scroll{overflow-x:auto;padding-bottom:8px;margin:0 -4px;scrollbar-width:thin;scrollbar-color:var(--ink-faint) var(--line-soft);cursor:grab;outline:none;}
+.chart-scroll.dragging{cursor:grabbing;user-select:none;}
+.chart-scroll::-webkit-scrollbar{height:8px;}
+.chart-scroll::-webkit-scrollbar-track{background:var(--line-soft);border-radius:99px;}
+.chart-scroll::-webkit-scrollbar-thumb{background:var(--ink-faint);border-radius:99px;}
+.scroll-hint{display:none;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);margin:14px 0 0;}
+.scroll-hint b{font-weight:600;color:var(--accent);}
+.scroll-wrap{position:relative;}
+.scroll-fade{position:absolute;top:0;bottom:14px;width:34px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:3;}
+.scroll-fade.l{left:46px;background:linear-gradient(90deg,var(--surface),rgba(255,255,255,0));}
+.scroll-fade.r{right:0;background:linear-gradient(270deg,var(--surface),rgba(255,255,255,0));}
+.scroll-btn{position:absolute;top:42%;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(18,33,31,.14);opacity:0;pointer-events:none;transition:opacity .15s;z-index:4;padding:0 0 2px;}
+.scroll-btn.l{left:54px;}
+.scroll-btn.r{right:6px;}
+.scroll-btn:hover{background:var(--bg);}
+.scroll-wrap.can-l .scroll-fade.l,.scroll-wrap.can-r .scroll-fade.r{opacity:1;}
+.scroll-wrap.can-l .scroll-btn.l,.scroll-wrap.can-r .scroll-btn.r{opacity:1;pointer-events:auto;}
+.chart-block{margin-top:12px;width:max-content;min-width:100%;}
 .chart-title{font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:0 0 6px 4px;position:sticky;left:4px;width:max-content;}
-.chart-row{display:flex;}
+.chart-row{display:flex;width:max-content;}
 .chart-row svg{display:block;flex:none;}
 .chart-row svg.yaxis{position:sticky;left:0;background:var(--surface);z-index:2;}
 .svg-chart .grid-line{stroke:var(--line-soft);stroke-width:1;}
@@ -282,19 +298,13 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
   .grid2{grid-template-columns:1fr;}
 }
 @media (max-width:880px){
-  .kpi-row{grid-template-columns:repeat(3,1fr);}
-  .kpi{border-bottom:1px solid var(--line);}
-  .kpi:nth-child(3){border-right:none;}
-  .kpi:nth-child(n+4){border-bottom:none;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .kpi:nth-child(2n){border-right:none;}
+  .kpi:nth-child(-n+2){border-bottom:1px solid var(--line);}
 }
 @media (max-width:560px){
   .wrap{padding:0 16px;}
   h1{font-size:25px;}
-  .kpi-row{grid-template-columns:repeat(2,1fr);}
-  .kpi:nth-child(3){border-right:1px solid var(--line);}
-  .kpi:nth-child(2n){border-right:none;}
-  .kpi:nth-child(n+4){border-bottom:1px solid var(--line);}
-  .kpi:nth-child(n+5){border-bottom:none;}
   .fresh-grid{grid-template-columns:1fr 1fr;row-gap:12px;}
   .fresh-grid > div:nth-child(3){padding-left:0;border-left:none;}
   .card{padding:18px;}
@@ -429,7 +439,6 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
             <tr>
               <th>Area</th>
               <th class="num">Valid tasks</th>
-              <th class="num">Cycles</th>
               <th class="num">Planned (sq ft)</th>
               <th class="num">Actual cleaned (sq ft)</th>
               <th class="num">Avg. completion</th>
@@ -448,12 +457,6 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
         <h3>Task History</h3>
         <div class="sub" style="margin-bottom:0;">Click a column header to sort</div>
       </div>
-      <div class="toggle-wrap" id="filterToggle">
-        <button data-f="all" class="active">All</button>
-        <button data-f="real">Valid cleaning</button>
-        <button data-f="aborted">Aborted / test</button>
-        <button data-f="failed">Failed / incomplete</button>
-      </div>
     </div>
     <div class="table-scroll">
       <table class="hist" id="histTable">
@@ -464,8 +467,6 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
             <th data-k="end">End</th>
             <th data-k="vin" class="col-vin">Vehicle</th>
             <th data-k="task">Area / Task</th>
-            <th data-k="taskId">Task ID</th>
-            <th data-k="cycles" class="num">Cycles</th>
             <th data-k="durationMin" class="num">Duration (min)</th>
             <th data-k="plannedAreaFt" class="num">Planned (sq ft)</th>
             <th data-k="actualAreaFt" class="num">Actual (sq ft)</th>
@@ -481,7 +482,7 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
   </div>
 
   <footer>
-    <span>* Efficiency = actual area ÷ cleaning time. Cycles and Task ID are not tracked in this export (—).</span>
+    <span>* Efficiency = actual area ÷ cleaning time.</span>
     <span id="footUpdated">Compiled from raw export · Pending Idriverplus fix for live web/app reporting</span>
   </footer>
 </main>
@@ -836,7 +837,6 @@ function renderKpis(recs){
   const k = computeKpis(recs);
   const kpis = [
     {num:`${fmt(k.areaFt)}<small> sq ft</small>`, lbl:'Total actual area cleaned'},
-    {num:`No data`, lbl:'Total cycles (not tracked in export)', nodata:true},
     {num:`${fmt(k.eff)}<small> sq ft/h</small>`, lbl:'Avg. cleaning efficiency'},
     {num:`${fmt(k.comp,1)}<small>%</small>`, lbl:'Avg. task completion rate'},
     {num:`${fmt(k.min/60,1)}<small> h</small>`, lbl:'Total actual cleaning time'},
@@ -929,7 +929,48 @@ function emptyChart(ids, msg){
   $(ids[0]).innerHTML = `<div class="nd" style="padding:24px 4px;">${msg}</div>`;
   $(ids[1]).innerHTML = '';
 }
-function scrollToLatest(id){ const s=$(id); if(s) s.scrollLeft = s.scrollWidth; }
+function updateScrollUI(sc){
+  const u = sc && sc._ui; if(!u) return;
+  const max = sc.scrollWidth - sc.clientWidth;
+  u.wrap.classList.toggle('can-l', sc.scrollLeft > 4);
+  u.wrap.classList.toggle('can-r', sc.scrollLeft < max - 4);
+  u.hint.style.display = max > 4 ? 'flex' : 'none';
+}
+function setupScroller(sc){
+  if(!sc || sc._ui) return;
+  const wrap = document.createElement('div'); wrap.className = 'scroll-wrap';
+  const hint = document.createElement('div'); hint.className = 'scroll-hint';
+  hint.innerHTML = '<b>↔</b> Drag, swipe or use the arrows to see earlier / later dates';
+  sc.parentNode.insertBefore(hint, sc);
+  sc.parentNode.insertBefore(wrap, sc);
+  wrap.appendChild(sc);
+  wrap.insertAdjacentHTML('afterbegin',
+    '<div class="scroll-fade l"></div><div class="scroll-fade r"></div>'+
+    '<button type="button" class="scroll-btn l" aria-label="Scroll to earlier dates">‹</button>'+
+    '<button type="button" class="scroll-btn r" aria-label="Scroll to later dates">›</button>');
+  sc._ui = {wrap, hint};
+  sc.tabIndex = 0;
+  const step = () => Math.max(160, sc.clientWidth * 0.6);
+  wrap.querySelector('.scroll-btn.l').addEventListener('click', ()=> sc.scrollBy({left:-step(), behavior:'smooth'}));
+  wrap.querySelector('.scroll-btn.r').addEventListener('click', ()=> sc.scrollBy({left: step(), behavior:'smooth'}));
+  sc.addEventListener('scroll', ()=> updateScrollUI(sc), {passive:true});
+  // mouse drag-to-scroll
+  let down=false, sx=0, sl=0, moved=false;
+  sc.addEventListener('pointerdown', e=>{ if(e.pointerType!=='mouse'||e.button!==0) return; down=true; moved=false; sx=e.clientX; sl=sc.scrollLeft; });
+  window.addEventListener('pointermove', e=>{
+    if(!down) return;
+    const dx = e.clientX - sx;
+    if(!moved && Math.abs(dx) > 4){ moved = true; sc.classList.add('dragging'); }
+    if(moved) sc.scrollLeft = sl - dx;
+  });
+  window.addEventListener('pointerup', ()=>{ if(!down) return; down=false; sc.classList.remove('dragging'); });
+}
+function scrollToLatest(id){
+  const s=$(id); if(!s) return;
+  setupScroller(s);
+  s.scrollLeft = s.scrollWidth;
+  updateScrollUI(s);
+}
 
 function idleIndex(dates, lastDate){
   if(!lastDate || selectedGroup==='demo') return -1;
@@ -993,7 +1034,7 @@ function renderWeekly(recs){
 // ---------- Area table ----------
 function renderLocations(recs){
   const rows = areaAgg(recs);
-  if(rows.length===0){ $('locBody').innerHTML = `<tr><td colspan="7" class="nd">No data in selected range</td></tr>`; return; }
+  if(rows.length===0){ $('locBody').innerHTML = `<tr><td colspan="6" class="nd">No data in selected range</td></tr>`; return; }
   const maxA = Math.max(...rows.map(r=>r.actualFt),1);
   $('locBody').innerHTML = rows.map(L=>{
     const avgC = L.compSum/L.count;
@@ -1002,7 +1043,6 @@ function renderLocations(recs){
     return `<tr>
       <td class="taskname">${L.task}</td>
       <td class="num">${L.count}</td>
-      <td class="num"><span class="nd">—</span></td>
       <td class="num">${fmt(L.plannedFt)}</td>
       <td class="num">${fmt(L.actualFt)}<div class="areabar"><i style="width:${L.actualFt/maxA*100}%"></i></div></td>
       <td class="num"><span class="pill ${pillClass}">${fmt(avgC,1)}%</span></td>
@@ -1012,22 +1052,15 @@ function renderLocations(recs){
 }
 
 // ---------- History table ----------
-let currentFilter = 'all';
 let sortKey = 'date';
 let sortDir = -1;
 
 function renderHist(){
   const recs = currentRecords;
-  const counts = {all:recs.length, real:0, aborted:0, failed:0};
-  recs.forEach(r=>counts[r.category]++);
-  const names = {all:'All', real:'Valid cleaning', aborted:'Aborted / test', failed:'Failed / incomplete'};
-  document.querySelectorAll('#filterToggle button').forEach(b=>{ b.textContent = `${names[b.dataset.f]} (${counts[b.dataset.f]})`; });
-
-  let rows = recs.filter(r=> currentFilter==='all' ? true : r.category===currentFilter);
+  let rows = recs;
   rows = rows.slice().sort((a,b)=>{
     let av=a[sortKey], bv=b[sortKey];
     if(sortKey==='date'){ av = a.date+a.start; bv = b.date+b.start; }
-    if(sortKey==='cycles' || sortKey==='taskId') return 0;
     if(typeof av === 'string'){ return sortDir * String(av).localeCompare(String(bv)); }
     return sortDir * ((av||0)-(bv||0));
   });
@@ -1037,7 +1070,7 @@ function renderHist(){
   });
   $('histTable').classList.toggle('single', !(selectedVehicle==='all' && vehicleCountInScope()>1));
   $('histCount').textContent = `Showing ${rows.length} of ${recs.length} records`;
-  if(rows.length===0){ $('histBody').innerHTML = `<tr><td colspan="13" class="nd">No data in selected range</td></tr>`; return; }
+  if(rows.length===0){ $('histBody').innerHTML = `<tr><td colspan="11" class="nd">No data in selected range</td></tr>`; return; }
   $('histBody').innerHTML = rows.map(r=>{
     const m = CAT_META[r.category];
     return `<tr>
@@ -1046,8 +1079,6 @@ function renderHist(){
       <td>${r.end}</td>
       <td class="col-vin">${r.vin ? r.vin.slice(-6) : '<span class="nd">—</span>'}</td>
       <td>${r.task}</td>
-      <td>${r.taskId ? r.taskId : '<span class="nd">—</span>'}</td>
-      <td class="num"><span class="nd">—</span></td>
       <td class="num">${r.durationMin}</td>
       <td class="num">${fmt(r.plannedAreaFt)}</td>
       <td class="num">${fmt(r.actualAreaFt)}</td>
@@ -1072,13 +1103,6 @@ function renderAll(recs){
   renderHist();
 }
 
-$('filterToggle').addEventListener('click', e=>{
-  const btn = e.target.closest('button'); if(!btn) return;
-  document.querySelectorAll('#filterToggle button').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  currentFilter = btn.dataset.f;
-  renderHist();
-});
 document.querySelectorAll('#histTable thead th').forEach(th=>{
   th.addEventListener('click', ()=>{
     const k = th.dataset.k;
