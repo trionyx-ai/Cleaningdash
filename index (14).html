@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cleaning Robot Pilot Performance Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#F3F6F5;
+  --surface:#FFFFFF;
+  --ink:#12211F;
+  --ink-soft:#4A5B56;
+  --ink-faint:#7F8E89;
+  --line:#DCE4E0;
+  --line-soft:#EBF0EE;
+  --accent:#0C8C86;
+  --accent-deep:#075E5A;
+  --accent-tint:#E3F2F0;
+  --amber:#C9711C;
+  --amber-deep:#8A4E12;
+  --amber-tint:#FBF0E3;
+  --amber-line:#EAC79A;
+  --amber-glow:#F0A24E;
+  --red:#B23A3A;
+  --red-tint:#F8E9E8;
+  --green:#1F8A54;
+  --green-tint:#E7F3EC;
+  --grey-tint:#EEF1F0;
+  --r-card:12px;
+  --r-ctl:8px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;line-height:1.45;
+}
+h1,h2,h3,.display{font-family:'Space Grotesk','Inter',sans-serif;}
+button{font-family:inherit;}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.wrap{max-width:1200px;margin:0 auto;padding:0 28px;}
+.main{padding-bottom:80px;}
+
+/* ================= Header ================= */
+.topband{background:var(--ink);color:#EAF3F1;padding:30px 0 26px;}
+.head-grid{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end;}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(12,140,134,0.25);}
+.eyebrow{font-size:13px;color:#9FB6B2;}
+h1{font-size:32px;font-weight:600;margin:0;line-height:1.15;letter-spacing:-0.01em;}
+.meta-row{display:flex;gap:10px 28px;flex-wrap:wrap;font-size:13px;color:#A9BEBA;margin-top:12px;}
+.meta-row b{color:#EAF3F1;font-weight:600;word-break:break-all;}
+
+/* freshness card */
+.fresh{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:var(--r-card);padding:16px 18px;min-width:400px;}
+.fresh-top{display:flex;justify-content:space-between;gap:16px;font-size:12.5px;color:#9FB6B2;}
+.fresh-top b{color:#EAF3F1;font-weight:600;}
+.fresh-grid{display:grid;grid-template-columns:repeat(3,auto);gap:0;margin-top:12px;}
+.fresh-grid > div{padding:0 18px;border-left:1px solid rgba(255,255,255,0.14);}
+.fresh-grid > div:first-child{padding-left:0;border-left:none;}
+.fresh-grid span{display:block;font-size:12px;color:#9FB6B2;}
+.fresh-grid b{display:block;font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;margin-top:2px;line-height:1.2;}
+.fresh-grid em{display:block;font-style:normal;font-size:12px;color:#9FB6B2;margin-top:1px;}
+.fresh-grid .idle b{color:var(--amber-glow);}
+.fresh-grid .idle em{color:#E5B67F;}
+.fresh-grid .ok b{color:#5FDCD3;}
+
+/* usage strip */
+.strip-wrap{margin-top:26px;}
+.strip-title{font-size:12.5px;color:#9FB6B2;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.strip-legend{display:flex;align-items:center;gap:6px;}
+.strip-legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+.strip-legend .sep{width:10px;}
+.strip{display:grid;gap:1px;height:34px;}
+.strip .c{display:block;border-radius:1px;background:rgba(255,255,255,0.08);}
+.strip .c:hover{outline:1.5px solid #fff;outline-offset:0;position:relative;z-index:1;}
+.l1{background:#1D5A56 !important;}
+.l2{background:#0F7771 !important;}
+.l3{background:#17A39B !important;}
+.l4{background:#52DAD0 !important;}
+.strip .c.idle,.strip-legend i.idle{background:repeating-linear-gradient(135deg,rgba(240,162,78,.85) 0 2px,rgba(240,162,78,.22) 2px 4px) !important;}
+.strip .c.off,.strip-legend i.off{background:rgba(255,255,255,0.08);}
+.strip-foot{position:relative;height:42px;margin-top:8px;font-size:12px;color:#9FB6B2;}
+.strip-foot .start{position:absolute;left:0;top:0;}
+.strip-foot .tail{position:absolute;left:0;right:0;top:0;text-align:right;}
+.strip-foot .bracket{height:7px;margin-left:auto;border:1.5px solid var(--amber-glow);border-top:none;border-radius:0 0 2px 2px;}
+.strip-foot .tail-txt{margin-top:3px;color:var(--amber-glow);font-weight:500;}
+.strip-foot .tail-txt.ok{color:#5FDCD3;}
+
+/* ================= Filter bar ================= */
+.filterbar{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);
+  padding:14px 16px;margin-top:22px;display:flex;flex-direction:column;gap:12px;z-index:30;
+}
+.fb-row{display:flex;align-items:center;gap:12px 20px;flex-wrap:wrap;}
+.fb-row.split{justify-content:space-between;}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap;}
+.seg button{
+  border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:999px;
+  font-size:13px;color:var(--ink-soft);cursor:pointer;transition:background .15s,border-color .15s;
+}
+.seg button:hover{border-color:var(--ink-faint);}
+.seg button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.seg button.demo-tab{border-color:var(--amber-line);color:var(--amber);}
+.seg button.demo-tab.active{background:var(--amber);border-color:var(--amber);color:#fff;}
+.seg button small{display:block;font-size:11px;opacity:.75;font-weight:400;margin-top:1px;}
+.seg button.v{padding:6px 14px;border-radius:var(--r-ctl);text-align:left;}
+.seg button small.late{color:var(--amber);opacity:1;font-weight:500;}
+.seg button.active small.late{color:var(--amber-glow);}
+.range{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;}
+.range label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);}
+.range input[type="date"]{
+  font-family:inherit;font-size:13px;color:var(--ink);border:1px solid var(--line);border-radius:var(--r-ctl);
+  padding:6px 9px;background:var(--bg);
+}
+.presets{display:flex;gap:4px;}
+.presets button{border:none;background:transparent;color:var(--ink-soft);font-size:13px;padding:6px 10px;border-radius:var(--r-ctl);cursor:pointer;}
+.presets button:hover{background:var(--grey-tint);}
+.presets button.active{background:var(--accent-tint);color:var(--accent-deep);font-weight:600;}
+.btn-export{
+  display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;
+  padding:9px 16px;border-radius:var(--r-ctl);font-size:13.5px;font-weight:600;cursor:pointer;
+}
+.btn-export:hover{background:var(--accent-deep);}
+.btn-export:disabled{background:var(--ink-faint);cursor:not-allowed;}
+.btn-export svg{width:16px;height:16px;}
+@media (min-width:900px) and (min-height:720px){
+  .filterbar{position:sticky;top:10px;box-shadow:0 8px 24px -12px rgba(18,33,31,.25);}
+}
+
+/* ================= Status banners ================= */
+.load-status{background:var(--accent-tint);border:1px solid #BFE0DD;color:var(--accent-deep);font-size:13px;padding:12px 18px;border-radius:var(--r-ctl);margin-top:22px;}
+.load-status.error{background:var(--red-tint);border-color:#E3B6B4;color:var(--red);}
+.load-status.demo{background:var(--amber-tint);border-color:var(--amber-line);color:var(--amber-deep);margin-top:12px;}
+.load-status.hidden{display:none;}
+
+/* ================= Sections ================= */
+.section-label{font-size:13px;color:var(--ink-faint);margin:30px 0 12px;display:flex;align-items:center;gap:12px;}
+.section-label b{color:var(--ink-soft);font-weight:600;}
+.section-label .ln{flex:1;height:1px;background:var(--line);}
+
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--surface);}
+.kpi{padding:20px 18px;border-right:1px solid var(--line);}
+.kpi:last-child{border-right:none;}
+.kpi .num{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:-0.01em;}
+.kpi .num small{font-size:13px;font-weight:500;color:var(--ink-soft);letter-spacing:0;}
+.kpi .lbl{margin-top:7px;font-size:12.5px;color:var(--ink-soft);line-height:1.4;}
+.kpi.warn .num{color:var(--red);}
+.kpi.nodata{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(18,33,31,.025) 8px 16px);}
+.kpi.nodata .num{color:var(--ink-faint);font-size:19px;padding-top:4px;}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:24px;margin-top:20px;}
+.card h3{font-size:16px;margin:0 0 2px;font-weight:600;}
+.card .sub{font-size:12.5px;color:var(--ink-faint);margin-bottom:18px;}
+.grid2{display:grid;grid-template-columns:1fr;gap:20px;align-items:start;}
+.grid2 .card{margin-top:20px;}
+
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
+.toggle-wrap{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px;}
+.toggle-wrap button{border:none;background:transparent;padding:6px 14px;border-radius:999px;cursor:pointer;font-size:12.5px;color:var(--ink-soft);}
+.toggle-wrap button.active{background:var(--ink);color:#fff;}
+.tabpane{display:none;}
+.tabpane.active{display:block;}
+
+/* ================= Charts ================= */
+.chart-scroll{overflow-x:auto;padding-bottom:4px;margin:0 -4px;}
+.chart-block{margin-top:12px;}
+.chart-title{font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:0 0 6px 4px;position:sticky;left:4px;width:max-content;}
+.chart-row{display:flex;}
+.chart-row svg{display:block;flex:none;}
+.chart-row svg.yaxis{position:sticky;left:0;background:var(--surface);z-index:2;}
+.svg-chart .grid-line{stroke:var(--line-soft);stroke-width:1;}
+.svg-chart .axis-line{stroke:var(--ink-faint);stroke-width:1;}
+.svg-chart .axis-lbl{font-family:'Inter',sans-serif;font-size:10.5px;fill:var(--ink-faint);}
+.svg-chart .bar{fill:var(--accent);}
+.svg-chart .hit{fill:transparent;}
+.svg-chart .hit:hover{fill:rgba(12,140,134,0.09);}
+.svg-chart .bar-val{font-family:'Space Grotesk',sans-serif;font-size:10px;fill:var(--ink-soft);}
+.svg-chart .line-path{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;}
+.svg-chart .line-dot{fill:var(--surface);stroke:var(--accent);stroke-width:2;}
+.svg-chart .idle-band{fill:var(--amber-tint);stroke:var(--amber-line);stroke-dasharray:3 3;}
+.svg-chart .idle-txt{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;fill:var(--amber);}
+.chart-note{font-size:12px;color:var(--ink-faint);margin:10px 0 0 4px;display:flex;align-items:center;gap:8px;}
+.chart-note i{width:14px;height:10px;border-radius:2px;background:var(--amber-tint);border:1px dashed var(--amber-line);display:inline-block;}
+
+/* ================= Breakdown ================= */
+.stack{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--grey-tint);gap:2px;}
+.stack i{display:block;min-width:3px;}
+.cat-list{display:flex;flex-direction:column;margin-top:18px;}
+.cat-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid var(--line-soft);}
+.cat-item .name{display:flex;align-items:center;gap:10px;font-size:13.5px;}
+.swatch{width:10px;height:10px;border-radius:3px;}
+.cat-item .n{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;}
+.cat-item .n span{font-size:12px;color:var(--ink-faint);font-family:'Inter',sans-serif;font-weight:400;}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink-soft);}
+
+/* ================= Tables ================= */
+.loc-table{width:100%;border-collapse:collapse;font-size:13px;}
+.loc-table th{text-align:left;font-weight:500;color:var(--ink-faint);font-size:11.5px;padding:0 10px 10px;border-bottom:1px solid var(--line);}
+.loc-table td{padding:11px 10px;border-bottom:1px solid var(--line-soft);}
+.loc-table tr:last-child td{border-bottom:none;}
+.loc-table td.num,.loc-table th.num{text-align:right;font-family:'Space Grotesk',sans-serif;}
+.loc-table .taskname{font-weight:600;}
+.loc-table tr.idle-row td{color:var(--amber);background:var(--amber-tint);}
+.loc-table tr.idle-row td.taskname{color:var(--amber-deep);}
+.table-x{overflow-x:auto;}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;}
+.pill.hi{background:var(--green-tint);color:var(--green);}
+.pill.mid{background:var(--amber-tint);color:var(--amber);}
+.pill.lo{background:var(--red-tint);color:var(--red);}
+.areabar{height:4px;border-radius:2px;background:var(--grey-tint);margin-top:5px;min-width:70px;margin-left:auto;}
+.areabar i{display:block;height:100%;background:var(--accent);border-radius:2px;}
+
+table.hist{width:100%;border-collapse:separate;border-spacing:0;font-size:12.8px;}
+table.hist thead th{position:sticky;top:0;z-index:1;background:var(--surface);text-align:left;font-weight:500;color:var(--ink-faint);font-size:11.5px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap;}
+table.hist thead th:hover{color:var(--ink);}
+table.hist thead th.sorted{color:var(--ink);}
+table.hist thead th.sorted::after{content:'↑';margin-left:5px;color:var(--accent);}
+table.hist thead th.sorted.desc::after{content:'↓';}
+table.hist thead th.num{text-align:right;}
+table.hist td{padding:9px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap;}
+table.hist td.num{text-align:right;font-family:'Space Grotesk',sans-serif;}
+table.hist tbody tr:hover{background:var(--bg);}
+table.hist.single .col-vin{display:none;}
+.status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;}
+.status .sd{width:8px;height:8px;border-radius:50%;}
+.status.real .sd{background:var(--green);}
+.status.aborted .sd{background:var(--ink-faint);}
+.status.failed .sd{background:var(--red);}
+.table-scroll{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-ctl);margin-top:14px;}
+.nd{color:var(--ink-faint);}
+.hist-count{font-size:12.5px;color:var(--ink-faint);margin-top:10px;}
+
+footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 24px;}
+
+/* ================= Export dialog ================= */
+dialog.export{border:none;border-radius:16px;padding:0;width:min(560px,calc(100% - 32px));color:var(--ink);background:var(--surface);box-shadow:0 30px 80px -20px rgba(10,24,22,.5);}
+dialog.export::backdrop{background:rgba(10,24,22,.55);}
+.dlg-head{padding:22px 24px 14px;}
+.dlg-head h2{margin:0;font-size:20px;font-weight:600;}
+.dlg-scope{margin-top:10px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px 12px;font-size:12.5px;color:var(--ink-soft);}
+.dlg-scope b{color:var(--ink);font-weight:600;}
+.dlg-body{padding:4px 24px 8px;max-height:min(58vh,520px);overflow:auto;}
+.dlg-sec{font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:14px 0 8px;}
+.opt{display:flex;align-items:flex-start;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;}
+.opt:hover{border-color:var(--ink-faint);}
+.opt:has(input:checked){border-color:var(--accent);background:var(--accent-tint);}
+.opt input{margin-top:3px;width:16px;height:16px;accent-color:var(--accent);flex:none;}
+.opt .t{flex:1;min-width:0;}
+.opt .t b{display:block;font-size:13.5px;font-weight:600;}
+.opt .t span{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:1px;}
+.opt em{font-style:normal;font-size:12px;color:var(--ink-faint);white-space:nowrap;margin-top:2px;}
+.sub-opts{display:flex;gap:6px 14px;flex-wrap:wrap;margin-top:8px;}
+.sub-opts label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;}
+.sub-opts input{accent-color:var(--accent);}
+.sub-opts.off{opacity:.4;pointer-events:none;}
+.unit-row{display:flex;gap:8px;}
+.unit-row label{flex:1;display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;cursor:pointer;}
+.unit-row label:has(input:checked){border-color:var(--accent);background:var(--accent-tint);}
+.unit-row input{accent-color:var(--accent);}
+.dlg-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px 20px;border-top:1px solid var(--line-soft);margin-top:8px;}
+.dlg-foot .count{font-size:12.5px;color:var(--ink-faint);}
+.dlg-foot .btns{display:flex;gap:8px;}
+.btn-ghost{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);padding:9px 16px;border-radius:var(--r-ctl);font-size:13.5px;cursor:pointer;}
+.btn-ghost:hover{border-color:var(--ink-faint);}
+.link-btn{border:none;background:none;color:var(--accent-deep);font-size:12.5px;cursor:pointer;padding:0;margin-left:10px;text-decoration:underline;}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:100;max-width:calc(100% - 32px);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.err{background:var(--red);}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;scroll-behavior:auto !important;}}
+
+/* ================= Responsive ================= */
+@media (max-width:1000px){
+  .head-grid{grid-template-columns:1fr;}
+  .fresh{min-width:0;}
+  .grid2{grid-template-columns:1fr;}
+}
+@media (max-width:880px){
+  .kpi-row{grid-template-columns:repeat(3,1fr);}
+  .kpi{border-bottom:1px solid var(--line);}
+  .kpi:nth-child(3){border-right:none;}
+  .kpi:nth-child(n+4){border-bottom:none;}
+}
+@media (max-width:560px){
+  .wrap{padding:0 16px;}
+  h1{font-size:25px;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .kpi:nth-child(3){border-right:1px solid var(--line);}
+  .kpi:nth-child(2n){border-right:none;}
+  .kpi:nth-child(n+4){border-bottom:1px solid var(--line);}
+  .kpi:nth-child(n+5){border-bottom:none;}
+  .fresh-grid{grid-template-columns:1fr 1fr;row-gap:12px;}
+  .fresh-grid > div:nth-child(3){padding-left:0;border-left:none;}
+  .card{padding:18px;}
+  .btn-export{width:100%;justify-content:center;}
+  .fb-row.split{flex-direction:column;align-items:stretch;}
+}
+</style>
+</head>
+<body>
+
+<header class="topband">
+  <div class="wrap">
+    <div class="head-grid">
+      <div>
+        <div class="brand"><span class="dot"></span><span class="eyebrow">Cleaning Robot Pilot Dashboard — Web &amp; App</span></div>
+        <h1>Cleaning Performance Overview</h1>
+        <div class="meta-row">
+          <span>Robot VIN <b id="vinDisplay">—</b></span>
+          <span>Vehicle Type <b id="vehicleTypeDisplay">—</b></span>
+          <span>Source <b>Idriverplus backend raw export (XLSX)</b></span>
+        </div>
+      </div>
+      <div class="fresh" id="fresh">
+        <div class="fresh-top"><span>Pilot period</span><b id="periodDisplay">Loading…</b></div>
+      </div>
+    </div>
+
+    <div class="strip-wrap" id="stripWrap" style="display:none;">
+      <div class="strip-title">
+        <span>Daily robot activity across the pilot</span>
+        <span class="strip-legend">
+          <span>Less</span><i class="off"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>More</span>
+          <i class="idle" style="margin-left:12px;"></i><span>No activity since last task</span>
+        </span>
+      </div>
+      <div class="strip" id="strip"></div>
+      <div class="strip-foot" id="stripFoot"></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap main">
+
+  <div class="load-status" id="loadStatus">Loading pilot data…</div>
+
+  <div class="filterbar" id="filterbar">
+    <div class="fb-row">
+      <div class="seg" id="sourceTabs"></div>
+      <div class="seg" id="vehicleTabs"></div>
+    </div>
+    <div class="fb-row split">
+      <div class="range">
+        <label>From <input type="date" id="rangeStart"></label>
+        <label>To <input type="date" id="rangeEnd"></label>
+        <div class="presets" id="presets">
+          <button type="button" data-r="7">Last 7 days</button>
+          <button type="button" data-r="30">Last 30 days</button>
+          <button type="button" data-r="all">Full period</button>
+        </div>
+      </div>
+      <button class="btn-export" id="exportBtn" type="button">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10M6 9l4 4 4-4M4 16h12"/></svg>
+        Export to Excel
+      </button>
+    </div>
+  </div>
+  <div class="load-status demo" id="demoBanner" style="display:none;">Showing <b>Demo</b> sample data — not from a live Pilot robot. All figures below are synthetic.</div>
+
+  <div class="section-label"><b id="rangeLabel">Whole pilot period</b><span id="rangeSub">KPIs computed from valid cleaning sessions only</span><span class="ln"></span></div>
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h3 id="perfTitle">Daily Cleaning Performance</h3>
+        <div class="sub" id="perfSub">Valid cleaning sessions only. Days with no robot activity are shown so gaps in use are visible.</div>
+      </div>
+      <div class="toggle-wrap" id="periodTabs">
+        <button data-p="daily" class="active">Daily</button>
+        <button data-p="weekly">Weekly</button>
+      </div>
+    </div>
+    <div class="tabpane active" id="pane-daily">
+      <div class="chart-scroll" id="dailyScroll">
+        <div class="chart-block">
+          <div class="chart-title">Actual area cleaned per day (sq ft)</div>
+          <div id="dailyBarChart"></div>
+        </div>
+        <div class="chart-block">
+          <div class="chart-title">Completion rate trend (%)</div>
+          <div id="dailyLineChart"></div>
+        </div>
+      </div>
+    </div>
+    <div class="tabpane" id="pane-weekly">
+      <div class="chart-scroll" id="weeklyScroll">
+        <div class="chart-block">
+          <div class="chart-title">Area cleaned per week (sq ft)</div>
+          <div id="weeklyBarChart"></div>
+        </div>
+        <div class="chart-block">
+          <div class="chart-title">Completion rate trend (%)</div>
+          <div id="weeklyLineChart"></div>
+        </div>
+      </div>
+      <div class="table-x" style="margin-top:24px;">
+        <table class="loc-table">
+          <thead>
+            <tr>
+              <th>Week of (Mon)</th>
+              <th class="num">Valid tasks</th>
+              <th class="num">Failed / incomplete</th>
+              <th class="num">Area cleaned (sq ft)</th>
+              <th class="num">Cleaning time (h)</th>
+              <th class="num">Avg. completion</th>
+            </tr>
+          </thead>
+          <tbody id="weekBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="chart-note" id="idleNote" style="display:none;"><i></i><span id="idleNoteTxt"></span></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Cleaning by Area / Floor</h3>
+      <div class="sub">Aggregated performance per cleaning zone, selected range</div>
+      <div class="table-x">
+        <table class="loc-table">
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th class="num">Valid tasks</th>
+              <th class="num">Cycles</th>
+              <th class="num">Planned (sq ft)</th>
+              <th class="num">Actual cleaned (sq ft)</th>
+              <th class="num">Avg. completion</th>
+              <th class="num">Avg. efficiency (sq ft/h)</th>
+            </tr>
+          </thead>
+          <tbody id="locBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h3>Task History</h3>
+        <div class="sub" style="margin-bottom:0;">Click a column header to sort</div>
+      </div>
+      <div class="toggle-wrap" id="filterToggle">
+        <button data-f="all" class="active">All</button>
+        <button data-f="real">Valid cleaning</button>
+        <button data-f="aborted">Aborted / test</button>
+        <button data-f="failed">Failed / incomplete</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="hist" id="histTable">
+        <thead>
+          <tr>
+            <th data-k="date">Date</th>
+            <th data-k="start">Start</th>
+            <th data-k="end">End</th>
+            <th data-k="vin" class="col-vin">Vehicle</th>
+            <th data-k="task">Area / Task</th>
+            <th data-k="taskId">Task ID</th>
+            <th data-k="cycles" class="num">Cycles</th>
+            <th data-k="durationMin" class="num">Duration (min)</th>
+            <th data-k="plannedAreaFt" class="num">Planned (sq ft)</th>
+            <th data-k="actualAreaFt" class="num">Actual (sq ft)</th>
+            <th data-k="calcEffFt" class="num">Efficiency (sq ft/h)*</th>
+            <th data-k="completion" class="num">Completion %</th>
+            <th data-k="category">Status</th>
+          </tr>
+        </thead>
+        <tbody id="histBody"></tbody>
+      </table>
+    </div>
+    <div class="hist-count" id="histCount"></div>
+  </div>
+
+  <footer>
+    <span>* Efficiency = actual area ÷ cleaning time. Cycles and Task ID are not tracked in this export (—).</span>
+    <span id="footUpdated">Compiled from raw export · Pending Idriverplus fix for live web/app reporting</span>
+  </footer>
+</main>
+
+<!-- Export dialog -->
+<dialog class="export" id="exportDialog">
+  <div class="dlg-head">
+    <h2>Export to Excel</h2>
+    <div class="dlg-scope" id="dlgScope"></div>
+  </div>
+  <div class="dlg-body">
+    <div class="dlg-sec">Choose the data to include <button class="link-btn" type="button" id="selAll">Select all</button><button class="link-btn" type="button" id="selNone">Clear</button></div>
+    <div id="dsList"></div>
+    <div class="dlg-sec">Area unit</div>
+    <div class="unit-row">
+      <label><input type="radio" name="unit" value="sqft" checked> Square feet (as shown)</label>
+      <label><input type="radio" name="unit" value="m2"> Square meters (raw export)</label>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <span class="count" id="dlgCount"></span>
+    <div class="btns">
+      <button class="btn-ghost" type="button" id="dlgCancel">Cancel</button>
+      <button class="btn-export" type="button" id="dlgGo">Download .xlsx</button>
+    </div>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const SQFT_PER_SQM = 10.7639104167;
+const DAY_MS = 86400000;
+
+const CAT_META = {
+  real:    {label:'Valid cleaning task',      color:'#0C8C86'},
+  aborted: {label:'Aborted / test start',     color:'#8B9994'},
+  failed:  {label:'Failed / incomplete task', color:'#B23A3A'},
+};
+
+const $ = id => document.getElementById(id);
+function fmt(n, d=0){ return Number(n).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d}); }
+function toSqft(sqm){ return sqm * SQFT_PER_SQM; }
+
+// ---------- Date helpers (all strings are YYYY-MM-DD, calculated in UTC so time zones can't shift a day) ----------
+const p2 = n => String(n).padStart(2,'0');
+function parseYmd(s){ return new Date(s+'T00:00:00Z'); }
+function ymd(d){ return d.toISOString().slice(0,10); }
+function addDays(s,n){ return ymd(new Date(parseYmd(s).getTime()+n*DAY_MS)); }
+function diffDays(a,b){ return Math.round((parseYmd(b)-parseYmd(a))/DAY_MS); }
+function localYmd(d){ return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
+function fmtDate(s,withYear=false){
+  return parseYmd(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:withYear?'numeric':undefined,timeZone:'UTC'});
+}
+function mondayOf(s){
+  const day = parseYmd(s).getUTCDay();
+  return addDays(s, day===0 ? -6 : 1-day);
+}
+function plural(n,w){ return `${n} ${w}${n===1?'':'s'}`; }
+
+// ---------- Raw spreadsheet row → internal record ----------
+function excelDateTimeToParts(value){
+  if(value===undefined || value===null || value==='') return {date:'', time:''};
+  if(typeof value==='string'){
+    const m = value.trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+    if(m) return {date:`${m[1]}-${p2(m[2])}-${p2(m[3])}`, time:`${p2(m[4]||0)}:${m[5]||'00'}`};
+  }
+  let d = (value instanceof Date) ? value : new Date(value);
+  if(isNaN(d.getTime())) return {date:'', time:''};
+  return {date:`${d.getUTCFullYear()}-${p2(d.getUTCMonth()+1)}-${p2(d.getUTCDate())}`, time:`${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`};
+}
+
+// Tolerant column lookup: matches header by prefix, so a garbled unit still works
+function pickCol(row, prefix){
+  const k = Object.keys(row).find(h=>h.trim().toLowerCase().startsWith(prefix.toLowerCase()));
+  return k===undefined ? undefined : row[k];
+}
+
+function parseRow(row){
+  const startVal = row['Start time'] ?? row['开始时间'];
+  const endVal = row['End time'] ?? row['结束时间'];
+  const dateVal = row['Date'] ?? row['日期'];
+  const startParts = excelDateTimeToParts(startVal);
+  const endParts = excelDateTimeToParts(endVal);
+  const date = startParts.date || excelDateTimeToParts(dateVal).date;
+
+  const durationMin = Number(row['Cleaning time(min)'] ?? row['清洁时长(min)']) || 0;
+  const plannedArea = Number(pickCol(row,'Programmed cleaning area') ?? row['计划清洁面积㎡']) || 0;
+  const actualArea = Number(pickCol(row,'Actual cleaning area') ?? row['实际清洁面积㎡']) || 0;
+  const completion = Number(row['Task completion rate(%)'] ?? row['任务完成率%']) || 0;
+  const plannedAreaFt = toSqft(plannedArea);
+  const actualAreaFt = toSqft(actualArea);
+  const calcEffFt = durationMin>0 ? (actualAreaFt/(durationMin/60)) : 0;
+
+  let category;
+  if(actualArea===0 && durationMin<=8) category='aborted';
+  else if(actualArea===0 && durationMin>8) category='failed';
+  else category='real';
+
+  const taskIdRaw = row['任务ID'] ? String(row['任务ID']).trim() : '';
+  return {
+    date, start: startParts.time, end: endParts.time,
+    task: String(row['Task name'] ?? row['任务名称'] ?? '').trim(),
+    taskId: taskIdRaw || null,
+    durationMin, plannedArea, actualArea, completion,
+    plannedAreaFt, actualAreaFt, calcEffFt, category,
+    vin: String(row['vin'] ?? '').trim(),
+    vehicleType: String(row['Vehicle type'] ?? row['车辆类型'] ?? '').trim(),
+  };
+}
+
+// ---------- Load manifest.json + one xlsx per vehicle ----------
+// manifest.json entries:  {"id":"FB0037","group":"real"}  (optional: "label", and "updated":"2026-10-28" to set the data-updated date by hand)
+async function fetchVehicleRows(entry){
+  const resp = await fetch(`data_${entry.id}.xlsx`, {cache:'no-store'});
+  if(!resp.ok) throw new Error(`HTTP ${resp.status} fetching data_${entry.id}.xlsx`);
+
+  // "Data updated" date: manifest "updated" → file's Last-Modified header → null (falls back to today)
+  let updated = entry.updated || null;
+  if(!updated){
+    const lm = resp.headers.get('Last-Modified');
+    const d = lm ? new Date(lm) : null;
+    if(d && !isNaN(d.getTime())) updated = localYmd(d);
+  }
+
+  const buf = await resp.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array', cellDates:true});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  // Read by column POSITION (A-L), ignoring header text
+  const keys = ['vin','Vehicle name','Vehicle type','Date','Task name','Cleaning time(min)',
+                'Programmed cleaning area(㎡)','Actual cleaning area(㎡)','Cleaning efficiency(㎡/h)',
+                'Task completion rate(%)','Start time','End time'];
+  const aoa = XLSX.utils.sheet_to_json(sheet, {header:1, defval:'', raw:true});
+  const rows = aoa.slice(1)
+    .filter(r=>r.some(c=>c!==''))
+    .map(r=>{ const o={}; keys.forEach((k,i)=>{ o[k]=r[i] ?? ''; }); return o; });
+  return {rows, updated};
+}
+
+function normalizeManifest(raw){
+  return raw.map(entry=>{
+    if(typeof entry === 'string') return {id:entry, group:'real', label:entry};
+    return {id:entry.id, group:entry.group || 'real', label:entry.label || entry.id, updated:entry.updated};
+  });
+}
+
+let UPDATED = null; // date the real data was last refreshed
+
+async function loadRecords(){
+  const statusEl = $('loadStatus');
+  try{
+    const manifestResp = await fetch('manifest.json', {cache:'no-store'});
+    if(!manifestResp.ok) throw new Error('HTTP '+manifestResp.status+' fetching manifest.json');
+    const rawManifest = await manifestResp.json();
+    if(!Array.isArray(rawManifest) || rawManifest.length===0) throw new Error('manifest.json has no vehicle entries');
+    const manifest = normalizeManifest(rawManifest);
+
+    let allRows = [];
+    const stamps = [];
+    for(const entry of manifest){
+      const {rows, updated} = await fetchVehicleRows(entry);
+      if(entry.group!=='demo' && updated) stamps.push(updated);
+      rows.forEach(r=>{ r.__group = entry.group; r.__label = entry.label; });
+      allRows = allRows.concat(rows);
+    }
+    UPDATED = stamps.length ? stamps.sort().pop() : localYmd(new Date());
+
+    const rows = allRows.filter(r=> (r['Start time']||r['开始时间']||r['Date']||r['日期']));
+    if(rows.length===0) throw new Error('Data files were found but contain no rows');
+    const recs = rows.map(r=>{
+      const rec = parseRow(r);
+      rec.group = r.__group;
+      rec.vehicleLabel = r.__label;
+      return rec;
+    }).sort((a,b)=> (a.date+a.start).localeCompare(b.date+b.start));
+    statusEl.classList.add('hidden');
+    return recs;
+  }catch(err){
+    statusEl.textContent = 'Could not load pilot data — make sure manifest.json and each data_<VEHICLE_ID>.xlsx file sit in the same folder as index.html, and that you are viewing the published GitHub Pages URL (fetch does not work when index.html is opened directly as a local file). Details: '+err.message;
+    statusEl.classList.add('error');
+    return [];
+  }
+}
+
+// ---------- State ----------
+let ALL_RECORDS = [];
+let currentRecords = [];
+let DATA_MIN = null, DATA_MAX = null;       // DATA_MAX = "data updated" date (end of the pilot period shown)
+let selectedVehicle = 'all';
+let selectedGroup = null;
+let activePeriod = 'daily';
+
+const GROUP_LABELS = {real:'Real Data', demo:'Demo'};
+function groupLabel(g){ return GROUP_LABELS[g] || (g.charAt(0).toUpperCase()+g.slice(1)); }
+function recordsInGroup(group){ return ALL_RECORDS.filter(r=>r.group===group); }
+function groupRecs(g){ return g ? recordsInGroup(g) : ALL_RECORDS; }
+
+// End of the period for a group: the data-updated date (demo data is synthetic, so it just ends at its last record)
+function refDate(g){
+  const rs = groupRecs(g);
+  const last = rs.length ? rs[rs.length-1].date : null;
+  if(g==='demo') return last;
+  return (last && last>UPDATED) ? last : UPDATED;
+}
+// Group + vehicle, ignoring the date picker
+function scopeRecs(){
+  let r = groupRecs(selectedGroup);
+  if(selectedVehicle !== 'all') r = r.filter(x=>x.vin===selectedVehicle);
+  return r;
+}
+function scopeLast(){ const r = scopeRecs(); return r.length ? r[r.length-1] : null; }
+function rangeStart(){ return $('rangeStart').value || DATA_MIN; }
+function rangeEnd(){ return $('rangeEnd').value || DATA_MAX; }
+function getBaseFiltered(){
+  const s = rangeStart(), e = rangeEnd();
+  return scopeRecs().filter(r => r.date >= s && r.date <= e);
+}
+
+// ---------- Aggregations (shared by the page and the Excel export) ----------
+function computeKpis(recs){
+  const real = recs.filter(r=>r.category==='real');
+  const areaFt = real.reduce((s,r)=>s+r.actualAreaFt,0);
+  const min = real.reduce((s,r)=>s+r.durationMin,0);
+  const aborted = recs.filter(r=>r.category==='aborted').length;
+  const failed = recs.filter(r=>r.category==='failed').length;
+  return {
+    validCount: real.length, total: recs.length, areaFt, min,
+    eff: min>0 ? areaFt/(min/60) : 0,
+    comp: real.length ? real.reduce((s,r)=>s+r.completion,0)/real.length : 0,
+    aborted, failed,
+    failRate: recs.length ? (aborted+failed)/recs.length*100 : 0,
+  };
+}
+
+function blankDay(date){ return {date, valid:0, failed:0, areaFt:0, min:0, compSum:0, any:0}; }
+function dailyAgg(recs, s, e){
+  const map = {};
+  recs.forEach(r=>{
+    const m = map[r.date] || (map[r.date] = blankDay(r.date));
+    m.any++;
+    if(r.category==='real'){ m.valid++; m.areaFt+=r.actualAreaFt; m.min+=r.durationMin; m.compSum+=r.completion; }
+    else m.failed++;
+  });
+  const out = [];
+  const n = diffDays(s,e);
+  for(let i=0;i<=n;i++){ const d = addDays(s,i); out.push(map[d] || blankDay(d)); }
+  return out;
+}
+function weeklyAgg(recs, s, e){
+  const map = {};
+  recs.forEach(r=>{
+    const wk = mondayOf(r.date);
+    const W = map[wk] || (map[wk] = {wk, valid:0, failed:0, areaFt:0, min:0, compSum:0, any:0});
+    W.any++;
+    if(r.category==='real'){ W.valid++; W.areaFt+=r.actualAreaFt; W.min+=r.durationMin; W.compSum+=r.completion; }
+    else W.failed++;
+  });
+  const out = [];
+  for(let wk=mondayOf(s); wk<=mondayOf(e); wk=addDays(wk,7)){
+    out.push(map[wk] || {wk, valid:0, failed:0, areaFt:0, min:0, compSum:0, any:0});
+  }
+  return out;
+}
+function areaAgg(recs){
+  const map = {};
+  recs.filter(r=>r.category==='real').forEach(r=>{
+    const L = map[r.task] || (map[r.task] = {task:r.task, count:0, plannedFt:0, actualFt:0, compSum:0, min:0});
+    L.count++; L.plannedFt = Math.max(L.plannedFt, r.plannedAreaFt); L.actualFt += r.actualAreaFt; L.compSum += r.completion; L.min += r.durationMin;
+  });
+  return Object.values(map).sort((a,b)=>b.actualFt-a.actualFt);
+}
+
+// "No activity" = every day after the last recorded task, up to the data-updated date
+function freshnessInfo(){
+  const last = scopeLast();
+  const ref = refDate(selectedGroup);
+  const scope = scopeRecs();
+  const activeDays = new Set(scope.map(r=>r.date)).size;
+  const totalDays = (DATA_MIN && ref) ? diffDays(DATA_MIN, ref)+1 : 0;
+  const idle = last ? Math.max(0, diffDays(last.date, ref)) : 0;
+  return {last, ref, idle, activeDays, totalDays, demo:selectedGroup==='demo'};
+}
+
+// ---------- Header: freshness card + activity strip ----------
+function renderFreshness(){
+  const f = freshnessInfo();
+  const box = $('fresh');
+  if(!f.last){ box.innerHTML = `<div class="fresh-top"><span>Pilot period</span><b>No data</b></div>`; $('stripWrap').style.display='none'; return; }
+  $('periodDisplay').textContent = '';
+  const idleBlock = f.demo
+    ? `<div><span>Data</span><b>Sample</b><em>Synthetic records</em></div>`
+    : (f.idle>0
+      ? `<div class="idle"><span>No activity since</span><b>${plural(f.idle,'day')}</b><em>${fmtDate(addDays(f.last.date,1))}${f.idle>1?' – '+fmtDate(f.ref):''}</em></div>`
+      : `<div class="ok"><span>Robot activity</span><b>Up to date</b><em>Last task on update day</em></div>`);
+  box.innerHTML = `
+    <div class="fresh-top"><span>Pilot period</span><b id="periodDisplay">${DATA_MIN} → ${f.ref}</b></div>
+    <div class="fresh-grid">
+      <div><span>${f.demo?'Last record':'Data updated'}</span><b>${fmtDate(f.demo?f.last.date:f.ref)}</b><em>${f.demo?f.last.date.slice(0,4):f.ref.slice(0,4)}</em></div>
+      <div><span>Last task</span><b>${fmtDate(f.last.date)}</b><em>${f.last.start || ''}${f.last.vin && selectedVehicle==='all' && vehicleCountInScope()>1 ? ' · '+f.last.vin.slice(-6) : ''}</em></div>
+      ${idleBlock}
+    </div>
+    <div class="fresh-top" style="margin-top:12px;"><span>Active days</span><b>${f.activeDays} of ${f.totalDays}</b></div>`;
+  renderStrip(f);
+}
+function vehicleCountInScope(){ return new Set(groupRecs(selectedGroup).map(r=>r.vin).filter(Boolean)).size; }
+
+function renderStrip(f){
+  const wrap = $('stripWrap');
+  if(!DATA_MIN || !f.ref){ wrap.style.display='none'; return; }
+  wrap.style.display = '';
+  const scope = scopeRecs();
+  const byDay = {};
+  scope.forEach(r=>{
+    const m = byDay[r.date] || (byDay[r.date] = {n:0, area:0, valid:0});
+    m.n++; if(r.category==='real'){ m.area += r.actualAreaFt; m.valid++; }
+  });
+  const maxArea = Math.max(1, ...Object.values(byDay).map(m=>m.area));
+  const n = f.totalDays;
+  let html = '';
+  for(let i=0;i<n;i++){
+    const d = addDays(DATA_MIN,i);
+    const m = byDay[d];
+    const tail = d > f.last.date;
+    let cls = 'c', tip;
+    if(tail){ cls += ' idle'; tip = `${fmtDate(d)} · no robot activity`; }
+    else if(!m){ cls += ' off'; tip = `${fmtDate(d)} · no tasks`; }
+    else {
+      const lvl = m.area>0 ? Math.min(4, Math.max(1, Math.ceil(m.area/maxArea*4))) : 1;
+      cls += ' l'+lvl;
+      tip = `${fmtDate(d)} · ${plural(m.valid,'valid task')} · ${fmt(m.area)} sq ft`;
+    }
+    html += `<i class="${cls}" title="${tip}"></i>`;
+  }
+  const strip = $('strip');
+  strip.style.gridTemplateColumns = `repeat(${n},1fr)`;
+  strip.innerHTML = html;
+
+  const pct = n ? (f.idle/n*100) : 0;
+  let foot = `<span class="start">${fmtDate(DATA_MIN,true)}</span>`;
+  if(f.demo){
+    foot += `<div class="tail"><div class="tail-txt ok">Sample data</div></div>`;
+  } else if(f.idle>0){
+    foot += `<div class="tail"><div class="bracket" style="width:${Math.max(pct,0.8)}%"></div>
+      <div class="tail-txt">Robot not used ${fmtDate(addDays(f.last.date,1))}${f.idle>1?' – '+fmtDate(f.ref):''} (${plural(f.idle,'day')}) · data updated ${fmtDate(f.ref)}</div></div>`;
+  } else {
+    foot += `<div class="tail"><div class="tail-txt ok">Last task on ${fmtDate(f.ref)} · data updated ${fmtDate(f.ref)}</div></div>`;
+  }
+  $('stripFoot').innerHTML = foot;
+}
+
+// ---------- KPI ----------
+function renderKpis(recs){
+  const k = computeKpis(recs);
+  const kpis = [
+    {num:`${fmt(k.areaFt)}<small> sq ft</small>`, lbl:'Total actual area cleaned'},
+    {num:`No data`, lbl:'Total cycles (not tracked in export)', nodata:true},
+    {num:`${fmt(k.eff)}<small> sq ft/h</small>`, lbl:'Avg. cleaning efficiency'},
+    {num:`${fmt(k.comp,1)}<small>%</small>`, lbl:'Avg. task completion rate'},
+    {num:`${fmt(k.min/60,1)}<small> h</small>`, lbl:'Total actual cleaning time'},
+  ];
+  $('kpiRow').innerHTML = kpis.map(x=>`
+    <div class="kpi ${x.warn?'warn':''} ${x.nodata?'nodata':''}">
+      <div class="num">${x.num}</div>
+      <div class="lbl">${x.lbl}</div>
+    </div>`).join('');
+}
+
+// ---------- Chart engine (SVG; fixed y-axis, scrolls sideways, starts at the latest date) ----------
+function niceMax(v){
+  if(v<=0) return 10;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v/mag;
+  const step = n<=1 ? 1 : n<=2 ? 2 : n<=5 ? 5 : 10;
+  return step*mag;
+}
+
+function drawChart(id, o){
+  const el = $(id);
+  const scroller = el.closest('.chart-scroll');
+  const cw = (scroller && scroller.clientWidth) || 720;
+  const axisW = 46, mt = 14, mb = 30, mr = 10;
+  const H = o.height || 190;
+  const n = o.labels.length;
+  const minPlot = Math.max(cw - axisW - mr - 8, 280);
+  let slot = o.slot, plotW = n*slot;
+  if(plotW < minPlot){ slot = minPlot/n; plotW = minPlot; }
+  const innerH = H-mt-mb;
+  const vals = o.values.filter(v=>v!==null);
+  const maxV = o.yMax ?? niceMax(Math.max(...vals,1)*1.08);
+  const yOf = v => mt + innerH - (v/maxV)*innerH;
+  const fy = o.yFmt || (v=>fmt(v));
+
+  let axis='', grid='';
+  for(let g=0; g<=4; g++){
+    const gv = maxV*g/4, y = yOf(gv);
+    grid += `<line class="grid-line" x1="0" x2="${plotW+mr}" y1="${y}" y2="${y}"/>`;
+    axis += `<text class="axis-lbl" x="${axisW-8}" y="${y+3.5}" text-anchor="end">${fy(gv)}</text>`;
+  }
+  grid += `<line class="axis-line" x1="0" x2="${plotW+mr}" y1="${mt+innerH}" y2="${mt+innerH}"/>`;
+
+  let shade = '';
+  if(o.idleFrom>=0 && o.idleFrom<n){
+    const x = o.idleFrom*slot, w = plotW-x;
+    shade = `<rect class="idle-band" x="${x}" y="${mt}" width="${w}" height="${innerH}" rx="3"/>`;
+    if(w>78) shade += `<text class="idle-txt" x="${x+w/2}" y="${mt+16}" text-anchor="middle">No activity</text>`;
+  }
+
+  let series='';
+  if(o.kind==='bar'){
+    const bw = Math.min(26, slot*0.62);
+    o.values.forEach((v,i)=>{
+      if(!(v>0)) return;
+      const h = (v/maxV)*innerH, x = (i+0.5)*slot-bw/2;
+      series += `<rect class="bar" x="${x}" y="${mt+innerH-h}" width="${bw}" height="${Math.max(h,1)}" rx="${Math.min(3,bw/2)}"/>`;
+      if(slot>=40) series += `<text class="bar-val" x="${(i+0.5)*slot}" y="${mt+innerH-h-5}" text-anchor="middle">${fmt(v)}</text>`;
+    });
+  } else {
+    let d='', prev=false;
+    const pts=[];
+    o.values.forEach((v,i)=>{
+      if(v===null){ prev=false; return; }
+      const x=(i+0.5)*slot, y=yOf(v);
+      d += (prev?' L':' M')+`${x.toFixed(1)},${y.toFixed(1)}`;
+      prev=true; pts.push([x,y]);
+    });
+    series += `<path class="line-path" d="${d.trim()}"/>`;
+    const r = slot>=10 ? 3 : 2;
+    pts.forEach(([x,y])=>{ series += `<circle class="line-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/>`; });
+  }
+
+  const k = Math.max(1, Math.ceil(46/slot));
+  let xl='', hits='';
+  o.labels.forEach((lab,i)=>{
+    if((n-1-i)%k===0) xl += `<text class="axis-lbl" x="${(i+0.5)*slot}" y="${H-mb+17}" text-anchor="middle">${lab}</text>`;
+    hits += `<rect class="hit" x="${i*slot}" y="${mt}" width="${slot}" height="${innerH}"><title>${o.tips[i]}</title></rect>`;
+  });
+
+  const W = plotW+mr;
+  el.innerHTML = `<div class="chart-row">
+    <svg class="svg-chart yaxis" width="${axisW}" height="${H}" viewBox="0 0 ${axisW} ${H}">${axis}</svg>
+    <svg class="svg-chart plot" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${shade}${grid}${series}${xl}${hits}</svg>
+  </div>`;
+}
+
+function emptyChart(ids, msg){
+  $(ids[0]).innerHTML = `<div class="nd" style="padding:24px 4px;">${msg}</div>`;
+  $(ids[1]).innerHTML = '';
+}
+function scrollToLatest(id){ const s=$(id); if(s) s.scrollLeft = s.scrollWidth; }
+
+function idleIndex(dates, lastDate){
+  if(!lastDate || selectedGroup==='demo') return -1;
+  return dates.findIndex(d=>d>lastDate);
+}
+
+function renderIdleNote(){
+  const f = freshnessInfo(), note = $('idleNote');
+  const e = rangeEnd();
+  if(!f.last || f.demo || f.idle===0 || e <= f.last.date){ note.style.display='none'; return; }
+  note.style.display = '';
+  $('idleNoteTxt').textContent = `Shaded area: no robot activity after the last task on ${fmtDate(f.last.date)} (${plural(Math.min(f.idle, diffDays(f.last.date,e)),'day')} in this range).`;
+}
+
+// ---------- Daily ----------
+function renderDaily(recs){
+  const s = rangeStart(), e = rangeEnd();
+  const days = dailyAgg(recs, s, e);
+  if(!days.some(d=>d.any)){ emptyChart(['dailyBarChart','dailyLineChart'], 'No data in selected range'); return; }
+  const last = scopeLast();
+  const idleFrom = idleIndex(days.map(d=>d.date), last && last.date);
+  const labels = days.map(d=>fmtDate(d.date));
+  const tips = days.map(d=> d.any
+    ? `${fmtDate(d.date)} · ${plural(d.valid,'valid task')} · ${fmt(d.areaFt)} sq ft${d.failed?` · ${d.failed} failed/aborted`:''}`
+    : (idleFrom>=0 && d.date>last.date ? `${fmtDate(d.date)} · no robot activity` : `${fmtDate(d.date)} · no tasks`));
+  drawChart('dailyBarChart', {kind:'bar', labels, values:days.map(d=>d.areaFt), tips, idleFrom, slot:20});
+  drawChart('dailyLineChart', {kind:'line', labels, values:days.map(d=>d.valid ? d.compSum/d.valid : null), tips, idleFrom, slot:20, yMax:100, height:170, yFmt:v=>fmt(v)});
+  scrollToLatest('dailyScroll');
+}
+
+// ---------- Weekly ----------
+function renderWeekly(recs){
+  const s = rangeStart(), e = rangeEnd();
+  const weeks = weeklyAgg(recs, s, e);
+  if(!weeks.some(w=>w.any)){
+    emptyChart(['weeklyBarChart','weeklyLineChart'], 'No data in selected range');
+    $('weekBody').innerHTML = `<tr><td colspan="6" class="nd">No data in selected range</td></tr>`;
+    return;
+  }
+  const last = scopeLast();
+  const idleFrom = idleIndex(weeks.map(w=>w.wk), last && last.date);
+  const labels = weeks.map(w=>fmtDate(w.wk));
+  const tips = weeks.map(w=>`Week of ${fmtDate(w.wk)} · ${plural(w.valid,'valid task')} · ${fmt(w.areaFt)} sq ft`);
+  drawChart('weeklyBarChart', {kind:'bar', labels, values:weeks.map(w=>w.areaFt), tips, idleFrom, slot:52});
+  drawChart('weeklyLineChart', {kind:'line', labels, values:weeks.map(w=>w.valid ? w.compSum/w.valid : null), tips, idleFrom, slot:52, yMax:100, height:170});
+  scrollToLatest('weeklyScroll');
+
+  $('weekBody').innerHTML = weeks.slice().reverse().map(w=>{
+    if(!w.any) return `<tr class="idle-row"><td class="taskname">${w.wk}</td><td colspan="5">No robot activity this week</td></tr>`;
+    return `<tr>
+      <td class="taskname">${w.wk}</td>
+      <td class="num">${w.valid}</td>
+      <td class="num">${w.failed}</td>
+      <td class="num">${fmt(w.areaFt)}</td>
+      <td class="num">${fmt(w.min/60,1)}</td>
+      <td class="num">${w.valid ? fmt(w.compSum/w.valid,1)+'%' : '<span class="nd">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- Area table ----------
+function renderLocations(recs){
+  const rows = areaAgg(recs);
+  if(rows.length===0){ $('locBody').innerHTML = `<tr><td colspan="7" class="nd">No data in selected range</td></tr>`; return; }
+  const maxA = Math.max(...rows.map(r=>r.actualFt),1);
+  $('locBody').innerHTML = rows.map(L=>{
+    const avgC = L.compSum/L.count;
+    const eff = L.min>0 ? L.actualFt/(L.min/60) : 0;
+    const pillClass = avgC>=90?'hi':(avgC>=50?'mid':'lo');
+    return `<tr>
+      <td class="taskname">${L.task}</td>
+      <td class="num">${L.count}</td>
+      <td class="num"><span class="nd">—</span></td>
+      <td class="num">${fmt(L.plannedFt)}</td>
+      <td class="num">${fmt(L.actualFt)}<div class="areabar"><i style="width:${L.actualFt/maxA*100}%"></i></div></td>
+      <td class="num"><span class="pill ${pillClass}">${fmt(avgC,1)}%</span></td>
+      <td class="num">${fmt(eff)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- History table ----------
+let currentFilter = 'all';
+let sortKey = 'date';
+let sortDir = -1;
+
+function renderHist(){
+  const recs = currentRecords;
+  const counts = {all:recs.length, real:0, aborted:0, failed:0};
+  recs.forEach(r=>counts[r.category]++);
+  const names = {all:'All', real:'Valid cleaning', aborted:'Aborted / test', failed:'Failed / incomplete'};
+  document.querySelectorAll('#filterToggle button').forEach(b=>{ b.textContent = `${names[b.dataset.f]} (${counts[b.dataset.f]})`; });
+
+  let rows = recs.filter(r=> currentFilter==='all' ? true : r.category===currentFilter);
+  rows = rows.slice().sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(sortKey==='date'){ av = a.date+a.start; bv = b.date+b.start; }
+    if(sortKey==='cycles' || sortKey==='taskId') return 0;
+    if(typeof av === 'string'){ return sortDir * String(av).localeCompare(String(bv)); }
+    return sortDir * ((av||0)-(bv||0));
+  });
+  document.querySelectorAll('#histTable thead th').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.k===sortKey);
+    th.classList.toggle('desc', th.dataset.k===sortKey && sortDir===-1);
+  });
+  $('histTable').classList.toggle('single', !(selectedVehicle==='all' && vehicleCountInScope()>1));
+  $('histCount').textContent = `Showing ${rows.length} of ${recs.length} records`;
+  if(rows.length===0){ $('histBody').innerHTML = `<tr><td colspan="13" class="nd">No data in selected range</td></tr>`; return; }
+  $('histBody').innerHTML = rows.map(r=>{
+    const m = CAT_META[r.category];
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${r.start}</td>
+      <td>${r.end}</td>
+      <td class="col-vin">${r.vin ? r.vin.slice(-6) : '<span class="nd">—</span>'}</td>
+      <td>${r.task}</td>
+      <td>${r.taskId ? r.taskId : '<span class="nd">—</span>'}</td>
+      <td class="num"><span class="nd">—</span></td>
+      <td class="num">${r.durationMin}</td>
+      <td class="num">${fmt(r.plannedAreaFt)}</td>
+      <td class="num">${fmt(r.actualAreaFt)}</td>
+      <td class="num">${fmt(r.calcEffFt)}</td>
+      <td class="num">${fmt(r.completion,1)}</td>
+      <td><span class="status ${r.category}"><span class="sd"></span>${m.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- Orchestration ----------
+function renderCharts(){
+  renderDaily(currentRecords);
+  renderWeekly(currentRecords);
+  renderIdleNote();
+}
+function renderAll(recs){
+  currentRecords = recs;
+  renderKpis(recs);
+  renderCharts();
+  renderLocations(recs);
+  renderHist();
+}
+
+$('filterToggle').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#filterToggle button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = btn.dataset.f;
+  renderHist();
+});
+document.querySelectorAll('#histTable thead th').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const k = th.dataset.k;
+    if(sortKey===k){ sortDir *= -1; } else { sortKey = k; sortDir = 1; }
+    renderHist();
+  });
+});
+$('periodTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#periodTabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  activePeriod = btn.dataset.p;
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.remove('active'));
+  $('pane-'+activePeriod).classList.add('active');
+  $('perfTitle').textContent = activePeriod==='daily' ? 'Daily Cleaning Performance' : 'Weekly Cleaning Performance';
+  $('perfSub').textContent = activePeriod==='daily'
+    ? 'Valid cleaning sessions only. Days with no robot activity are shown so gaps in use are visible.'
+    : 'Calendar weeks (Mon–Sun), valid cleaning sessions only.';
+  renderCharts(); // hidden panes have no width, so draw again once visible
+});
+let resizeTimer;
+window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(()=>{ if(currentRecords.length||DATA_MIN) renderCharts(); }, 150); });
+
+// ---------- Filters: date range, presets, source & vehicle tabs ----------
+const startInput = $('rangeStart');
+const endInput = $('rangeEnd');
+
+function updatePresetState(){
+  const s = rangeStart(), e = rangeEnd();
+  document.querySelectorAll('#presets button').forEach(b=>{
+    let on = false;
+    if(b.dataset.r==='all') on = (s===DATA_MIN && e===DATA_MAX);
+    else { const n = +b.dataset.r; on = (e===DATA_MAX && s===maxStr(DATA_MIN, addDays(DATA_MAX,-(n-1)))); }
+    b.classList.toggle('active', on);
+  });
+}
+function maxStr(a,b){ return a>b ? a : b; }
+
+function applyFilters(){
+  const s = rangeStart(), e = rangeEnd();
+  const full = (s===DATA_MIN && e===DATA_MAX);
+  $('rangeLabel').textContent = full ? 'Whole pilot period' : `${fmtDate(s,true)} → ${fmtDate(e,true)}`;
+  $('rangeSub').textContent = 'KPIs computed from valid cleaning sessions only';
+  updatePresetState();
+  renderAll(getBaseFiltered());
+}
+function applyRange(){
+  let s = rangeStart(), e = rangeEnd();
+  if(s > e){ [s,e] = [e,s]; startInput.value = s; endInput.value = e; }
+  applyFilters();
+}
+startInput.addEventListener('change', applyRange);
+endInput.addEventListener('change', applyRange);
+$('presets').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b || !DATA_MIN) return;
+  if(b.dataset.r==='all'){ startInput.value = DATA_MIN; }
+  else { startInput.value = maxStr(DATA_MIN, addDays(DATA_MAX, -(+b.dataset.r - 1))); }
+  endInput.value = DATA_MAX;
+  applyRange();
+});
+
+function updateHeaderForVehicle(){
+  const scoped = groupRecs(selectedGroup);
+  const vehicleIds = Array.from(new Set(scoped.map(r=>r.vin).filter(Boolean))).sort();
+  if(selectedVehicle==='all'){
+    $('vinDisplay').textContent = vehicleIds.length ? vehicleIds.join(', ') : 'No data';
+    const types = Array.from(new Set(scoped.map(r=>r.vehicleType).filter(Boolean)));
+    $('vehicleTypeDisplay').textContent = types.length ? types.join(', ') : 'No data';
+  } else {
+    const rec = ALL_RECORDS.find(r=>r.vin===selectedVehicle);
+    $('vinDisplay').textContent = selectedVehicle || 'No data';
+    $('vehicleTypeDisplay').textContent = (rec && rec.vehicleType) || 'No data';
+  }
+}
+
+function recomputeDateBoundsForGroup(){
+  $('demoBanner').style.display = (selectedGroup==='demo') ? '' : 'none';
+  const scoped = groupRecs(selectedGroup);
+  DATA_MIN = scoped.length ? scoped[0].date : null;
+  DATA_MAX = scoped.length ? refDate(selectedGroup) : null;
+  [startInput,endInput].forEach(i=>{ i.min = DATA_MIN; i.max = DATA_MAX; });
+  startInput.value = DATA_MIN; endInput.value = DATA_MAX;
+  $('footUpdated').textContent = (selectedGroup==='demo' || !DATA_MAX)
+    ? 'Compiled from raw export · Pending Idriverplus fix for live web/app reporting'
+    : `Data updated ${fmtDate(DATA_MAX,true)} · Compiled from raw export · Pending Idriverplus fix for live web/app reporting`;
+}
+
+function buildVehicleTabs(){
+  const scoped = groupRecs(selectedGroup);
+  const vehicleIds = Array.from(new Set(scoped.map(r=>r.vin).filter(Boolean))).sort();
+  const el = $('vehicleTabs');
+  selectedVehicle = 'all';
+  if(vehicleIds.length > 1){
+    const ref = refDate(selectedGroup);
+    const lastOf = v => { const rs = scoped.filter(r=>r.vin===v); return rs[rs.length-1].date; };
+    const sub = v => {
+      const d = lastOf(v), idle = diffDays(d, ref);
+      return selectedGroup==='demo' ? '' : `<small class="${idle>0?'late':''}">Last task ${fmtDate(d)}${idle>0?` · idle ${idle}d`:''}</small>`;
+    };
+    el.style.display = '';
+    el.innerHTML = [`<button class="v active" data-v="all">All vehicles (${vehicleIds.length})${selectedGroup==='demo'?'':`<small>Whole fleet</small>`}</button>`]
+      .concat(vehicleIds.map(v=>`<button class="v" data-v="${v}">${v}${sub(v)}</button>`)).join('');
+  } else {
+    el.style.display = 'none';
+    el.innerHTML = '';
+  }
+  updateHeaderForVehicle();
+}
+$('vehicleTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  $('vehicleTabs').querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedVehicle = btn.dataset.v;
+  updateHeaderForVehicle();
+  renderFreshness();
+  applyFilters();
+});
+
+function buildSourceTabs(){
+  const groups = Array.from(new Set(ALL_RECORDS.map(r=>r.group)));
+  const el = $('sourceTabs');
+  if(groups.length <= 1){ el.style.display = 'none'; return; }
+  el.style.display = '';
+  const order = ['real','demo'].filter(g=>groups.includes(g)).concat(groups.filter(g=>!['real','demo'].includes(g)));
+  el.innerHTML = order.map(g=>{
+    const n = new Set(recordsInGroup(g).map(r=>r.vin)).size;
+    return `<button data-g="${g}" class="${g===selectedGroup?'active':''} ${g==='demo'?'demo-tab':''}">${groupLabel(g)} (${n})</button>`;
+  }).join('');
+  el.onclick = e=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    el.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedGroup = btn.dataset.g;
+    recomputeDateBoundsForGroup();
+    buildVehicleTabs();
+    renderFreshness();
+    applyFilters();
+  };
+}
+
+// =====================================================================
+//  Excel export
+// =====================================================================
+const exportSel = {
+  ds: {summary:true, vehicles:false, daily:true, weekly:false, area:false, history:true},
+  status: {real:true, aborted:true, failed:true},
+  unit: 'sqft',
+};
+function toast(msg, err=false){
+  const t = $('toast');
+  t.textContent = msg; t.classList.toggle('err', err); t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('show'), 3800);
+}
+function exportScopeText(){
+  const veh = selectedVehicle==='all' ? 'All vehicles' : selectedVehicle;
+  return `<b>${groupLabel(selectedGroup)}</b> · ${veh} · ${rangeStart()} → ${rangeEnd()}<br><span style="color:var(--ink-faint)">Uses the filters currently selected on the dashboard.</span>`;
+}
+function datasetMeta(){
+  const recs = currentRecords;
+  const s = rangeStart(), e = rangeEnd();
+  const vins = new Set(recs.map(r=>r.vin).filter(Boolean));
+  const scopeVins = new Set(scopeRecs().map(r=>r.vin).filter(Boolean));
+  const st = {real:0, aborted:0, failed:0}; recs.forEach(r=>st[r.category]++);
+  return [
+    {id:'summary',  title:'Summary',            desc:'KPIs, data-updated date, last task and days without activity', count:'1 sheet'},
+    {id:'vehicles', title:'Vehicle status',     desc:'Per vehicle: last task, days idle, tasks and area in range', count:plural(scopeVins.size,'vehicle')},
+    {id:'daily',    title:'Daily performance',  desc:'One row per day, including days with no activity', count:plural(diffDays(s,e)+1,'day')},
+    {id:'weekly',   title:'Weekly performance', desc:'One row per calendar week (Mon–Sun)', count:plural(weeklyAgg(recs,s,e).length,'week')},
+    {id:'area',     title:'Cleaning by area / floor', desc:'Planned vs. actual area, completion and efficiency per area', count:plural(areaAgg(recs).length,'area')},
+    {id:'history',  title:'Task history',       desc:'Every task record', count:null, status:st},
+  ];
+}
+function openExport(){
+  const dlg = $('exportDialog');
+  $('dlgScope').innerHTML = exportScopeText();
+  const meta = datasetMeta();
+  $('dsList').innerHTML = meta.map(m=>{
+    const sub = m.id==='history' ? `
+      <div class="sub-opts ${exportSel.ds.history?'':'off'}" id="histSub">
+        <label><input type="checkbox" data-st="real" ${exportSel.status.real?'checked':''}> Valid cleaning (${m.status.real})</label>
+        <label><input type="checkbox" data-st="aborted" ${exportSel.status.aborted?'checked':''}> Aborted / test (${m.status.aborted})</label>
+        <label><input type="checkbox" data-st="failed" ${exportSel.status.failed?'checked':''}> Failed / incomplete (${m.status.failed})</label>
+      </div>` : '';
+    return `<label class="opt"><input type="checkbox" data-ds="${m.id}" ${exportSel.ds[m.id]?'checked':''}>
+      <div class="t"><b>${m.title}</b><span>${m.desc}</span>${sub}</div>
+      <em id="cnt-${m.id}">${m.count||''}</em></label>`;
+  }).join('');
+  document.querySelector(`input[name="unit"][value="${exportSel.unit}"]`).checked = true;
+  updateExportCounts();
+  if(!dlg.open) dlg.showModal();
+}
+function selectedStatuses(){ return Object.keys(exportSel.status).filter(k=>exportSel.status[k]); }
+function updateExportCounts(){
+  const recs = currentRecords;
+  const histN = recs.filter(r=>exportSel.status[r.category]).length;
+  const el = $('cnt-history'); if(el) el.textContent = plural(histN,'row');
+  const hs = $('histSub'); if(hs) hs.classList.toggle('off', !exportSel.ds.history);
+  const n = Object.values(exportSel.ds).filter(Boolean).length;
+  $('dlgCount').textContent = n ? `${plural(n,'sheet')} selected` : 'Select at least one dataset';
+  $('dlgGo').disabled = n===0;
+}
+$('exportBtn').addEventListener('click', ()=>{ if(!DATA_MIN){ toast('No data to export yet.', true); return; } openExport(); });
+$('dlgCancel').addEventListener('click', ()=>$('exportDialog').close());
+$('exportDialog').addEventListener('click', e=>{ if(e.target===$('exportDialog')) $('exportDialog').close(); });
+$('dsList').addEventListener('change', e=>{
+  const i = e.target;
+  if(i.dataset.ds) exportSel.ds[i.dataset.ds] = i.checked;
+  if(i.dataset.st) exportSel.status[i.dataset.st] = i.checked;
+  updateExportCounts();
+});
+document.querySelectorAll('input[name="unit"]').forEach(r=>r.addEventListener('change', ()=>{ exportSel.unit = r.value; }));
+$('selAll').addEventListener('click', ()=>{ Object.keys(exportSel.ds).forEach(k=>exportSel.ds[k]=true); $('dsList').querySelectorAll('[data-ds]').forEach(i=>i.checked=true); updateExportCounts(); });
+$('selNone').addEventListener('click', ()=>{ Object.keys(exportSel.ds).forEach(k=>exportSel.ds[k]=false); $('dsList').querySelectorAll('[data-ds]').forEach(i=>i.checked=false); updateExportCounts(); });
+
+function setCols(ws, widths){ ws['!cols'] = widths.map(w=>({wch:w})); }
+
+function buildWorkbook(){
+  if(typeof XLSX === 'undefined') throw new Error('The Excel library did not load. Check your internet connection and reload the page.');
+  const recs = currentRecords;
+  const s = rangeStart(), e = rangeEnd();
+  const sq = exportSel.unit==='sqft';
+  const U = sq ? 'sq ft' : 'm²';
+  const A = ft => Math.round((sq ? ft : ft/SQFT_PER_SQM)*100)/100;       // area from sq ft
+  const r1 = v => Math.round(v*10)/10;
+  const f = freshnessInfo();
+  const wb = XLSX.utils.book_new();
+  const add = (ws, name)=>XLSX.utils.book_append_sheet(wb, ws, name);
+
+  if(exportSel.ds.summary){
+    const k = computeKpis(recs);
+    const veh = selectedVehicle==='all' ? 'All vehicles' : selectedVehicle;
+    const aoa = [
+      ['Cleaning Robot Pilot — export'],
+      ['Exported on', localYmd(new Date())],
+      ['Source', groupLabel(selectedGroup)],
+      ['Vehicle', veh],
+      ['Date range', `${s} → ${e}`],
+      ['Area unit', U],
+      [],
+      ['Data freshness'],
+      ['Data updated', f.demo ? 'n/a (demo data)' : f.ref],
+      ['Last task', f.last ? `${f.last.date} ${f.last.start}` : 'No data'],
+      ['Days without activity since last task', f.demo ? 'n/a' : f.idle],
+      ['Active days / days in pilot period', `${f.activeDays} / ${f.totalDays}`],
+      [],
+      ['KPI','Value','Unit'],
+      ['Total actual area cleaned', A(k.areaFt), U],
+      ['Avg. cleaning efficiency', A(k.eff), `${U}/h`],
+      ['Avg. task completion rate', r1(k.comp), '%'],
+      ['Total actual cleaning time', r1(k.min/60), 'h'],
+      ['Valid cleaning tasks', k.validCount, ''],
+      ['Aborted / test starts', k.aborted, ''],
+      ['Failed / incomplete tasks', k.failed, ''],
+      ['Total task records', k.total, ''],
+      ['Failed + aborted share', r1(k.failRate), '%'],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa); setCols(ws,[38,22,10]); add(ws,'Summary');
+  }
+
+  if(exportSel.ds.vehicles){
+    const scope = scopeRecs();
+    const vins = Array.from(new Set(scope.map(r=>r.vin).filter(Boolean))).sort();
+    const rows = vins.map(v=>{
+      const all = scope.filter(r=>r.vin===v);
+      const inR = recs.filter(r=>r.vin===v);
+      const k = computeKpis(inR);
+      const lastD = all[all.length-1];
+      return {
+        'Vehicle (VIN)': v,
+        'Vehicle type': (all.find(r=>r.vehicleType)||{}).vehicleType || '',
+        'First task': all[0].date,
+        'Last task': `${lastD.date} ${lastD.start}`,
+        'Days since last task': f.demo ? '' : Math.max(0, diffDays(lastD.date, f.ref)),
+        'Valid tasks (in range)': k.validCount,
+        'Failed / aborted (in range)': k.aborted+k.failed,
+        [`Area cleaned (${U})`]: A(k.areaFt),
+        'Cleaning time (h)': r1(k.min/60),
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[22,14,12,18,20,20,26,20,18]); add(ws,'Vehicle status');
+  }
+
+  if(exportSel.ds.daily){
+    const lastDate = f.last ? f.last.date : null;
+    const rows = dailyAgg(recs, s, e).map(d=>({
+      'Date': d.date,
+      'Weekday': parseYmd(d.date).toLocaleDateString('en-US',{weekday:'short',timeZone:'UTC'}),
+      'Status': d.any ? 'Active' : (!f.demo && lastDate && d.date>lastDate ? 'No activity (after last task)' : 'No tasks'),
+      'Valid tasks': d.valid,
+      'Failed / aborted': d.failed,
+      [`Area cleaned (${U})`]: A(d.areaFt),
+      'Cleaning time (h)': r1(d.min/60),
+      'Avg. completion (%)': d.valid ? r1(d.compSum/d.valid) : '',
+      [`Efficiency (${U}/h)`]: d.min>0 ? A(d.areaFt/(d.min/60)) : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[12,9,28,12,16,18,18,20,18]); add(ws,'Daily');
+  }
+
+  if(exportSel.ds.weekly){
+    const rows = weeklyAgg(recs, s, e).map(w=>({
+      'Week of (Mon)': w.wk,
+      'Valid tasks': w.valid,
+      'Failed / aborted': w.failed,
+      [`Area cleaned (${U})`]: A(w.areaFt),
+      'Cleaning time (h)': r1(w.min/60),
+      'Avg. completion (%)': w.valid ? r1(w.compSum/w.valid) : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[14,12,16,18,18,20]); add(ws,'Weekly');
+  }
+
+  if(exportSel.ds.area){
+    const rows = areaAgg(recs).map(L=>({
+      'Area / task': L.task,
+      'Valid tasks': L.count,
+      [`Planned area (${U})`]: A(L.plannedFt),
+      [`Actual area cleaned (${U})`]: A(L.actualFt),
+      'Cleaning time (h)': r1(L.min/60),
+      'Avg. completion (%)': r1(L.compSum/L.count),
+      [`Avg. efficiency (${U}/h)`]: L.min>0 ? A(L.actualFt/(L.min/60)) : '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{'Area / task':'No data in range'}]); setCols(ws,[18,12,20,26,18,20,24]); add(ws,'By Area');
+  }
+
+  if(exportSel.ds.history){
+    const rows = recs.filter(r=>exportSel.status[r.category]).map(r=>({
+      'Date': r.date,
+      'Start': r.start,
+      'End': r.end,
+      'Vehicle (VIN)': r.vin,
+      'Area / task': r.task,
+      'Duration (min)': r.durationMin,
+      [`Planned (${U})`]: A(r.plannedAreaFt),
+      [`Actual (${U})`]: A(r.actualAreaFt),
+      [`Efficiency (${U}/h)`]: A(r.calcEffFt),
+      'Completion (%)': r1(r.completion),
+      'Status': CAT_META[r.category].label,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{'Date':'No records for the selected statuses'}]);
+    setCols(ws,[12,8,8,22,16,14,16,16,18,15,24]); add(ws,'Task History');
+  }
+  return wb;
+}
+
+$('dlgGo').addEventListener('click', ()=>{
+  try{
+    const wb = buildWorkbook();
+    const veh = selectedVehicle==='all' ? 'all-vehicles' : selectedVehicle.slice(-6);
+    const name = `cleaning-robot_${selectedGroup}_${veh}_${rangeStart()}_${rangeEnd()}.xlsx`;
+    XLSX.writeFile(wb, name);
+    $('exportDialog').close();
+    toast(`Downloaded ${name} (${plural(wb.SheetNames.length,'sheet')})`);
+  }catch(err){
+    toast(err.message || 'Export failed', true);
+  }
+});
+
+// ---------- Init ----------
+(async function init(){
+  ALL_RECORDS = await loadRecords();
+  if(ALL_RECORDS.length===0){
+    $('periodDisplay').textContent = 'No data';
+    $('exportBtn').disabled = true;
+    return;
+  }
+  const groups = Array.from(new Set(ALL_RECORDS.map(r=>r.group)));
+  selectedGroup = groups.includes('real') ? 'real' : groups[0];
+  buildSourceTabs();
+  recomputeDateBoundsForGroup();
+  buildVehicleTabs();
+  renderFreshness();
+  applyFilters();
+})();
+</script>
+</body>
+</html>
