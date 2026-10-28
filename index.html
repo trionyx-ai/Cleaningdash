@@ -243,11 +243,6 @@ table.hist td{padding:9px 12px;border-bottom:1px solid var(--line-soft);white-sp
 table.hist td.num{text-align:right;font-family:'Space Grotesk',sans-serif;}
 table.hist tbody tr:hover{background:var(--bg);}
 table.hist.single .col-vin{display:none;}
-.status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;}
-.status .sd{width:8px;height:8px;border-radius:50%;}
-.status.real .sd{background:var(--green);}
-.status.aborted .sd{background:var(--ink-faint);}
-.status.failed .sd{background:var(--red);}
 .table-scroll{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-ctl);margin-top:14px;}
 .nd{color:var(--ink-faint);}
 .hist-count{font-size:12.5px;color:var(--ink-faint);margin-top:10px;}
@@ -416,7 +411,6 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
             <tr>
               <th>Week of (Mon)</th>
               <th class="num">Valid tasks</th>
-              <th class="num">Failed / incomplete</th>
               <th class="num">Area cleaned (sq ft)</th>
               <th class="num">Cleaning time (h)</th>
               <th class="num">Avg. completion</th>
@@ -472,7 +466,6 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
             <th data-k="actualAreaFt" class="num">Actual (sq ft)</th>
             <th data-k="calcEffFt" class="num">Efficiency (sq ft/h)*</th>
             <th data-k="completion" class="num">Completion %</th>
-            <th data-k="category">Status</th>
           </tr>
         </thead>
         <tbody id="histBody"></tbody>
@@ -516,11 +509,6 @@ dialog.export::backdrop{background:rgba(10,24,22,.55);}
 const SQFT_PER_SQM = 10.7639104167;
 const DAY_MS = 86400000;
 
-const CAT_META = {
-  real:    {label:'Valid cleaning task',      color:'#0C8C86'},
-  aborted: {label:'Aborted / test start',     color:'#8B9994'},
-  failed:  {label:'Failed / incomplete task', color:'#B23A3A'},
-};
 
 const $ = id => document.getElementById(id);
 function fmt(n, d=0){ return Number(n).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d}); }
@@ -994,7 +982,7 @@ function renderDaily(recs){
   const idleFrom = idleIndex(days.map(d=>d.date), last && last.date);
   const labels = days.map(d=>fmtDate(d.date));
   const tips = days.map(d=> d.any
-    ? `${fmtDate(d.date)} · ${plural(d.valid,'valid task')} · ${fmt(d.areaFt)} sq ft${d.failed?` · ${d.failed} failed/aborted`:''}`
+    ? `${fmtDate(d.date)} · ${plural(d.valid,'valid task')} · ${fmt(d.areaFt)} sq ft`
     : (idleFrom>=0 && d.date>last.date ? `${fmtDate(d.date)} · no robot activity` : `${fmtDate(d.date)} · no tasks`));
   drawChart('dailyBarChart', {kind:'bar', labels, values:days.map(d=>d.areaFt), tips, idleFrom, slot:20});
   drawChart('dailyLineChart', {kind:'line', labels, values:days.map(d=>d.valid ? d.compSum/d.valid : null), tips, idleFrom, slot:20, yMax:100, height:170, yFmt:v=>fmt(v)});
@@ -1007,7 +995,7 @@ function renderWeekly(recs){
   const weeks = weeklyAgg(recs, s, e);
   if(!weeks.some(w=>w.any)){
     emptyChart(['weeklyBarChart','weeklyLineChart'], 'No data in selected range');
-    $('weekBody').innerHTML = `<tr><td colspan="6" class="nd">No data in selected range</td></tr>`;
+    $('weekBody').innerHTML = `<tr><td colspan="5" class="nd">No data in selected range</td></tr>`;
     return;
   }
   const last = scopeLast();
@@ -1019,11 +1007,10 @@ function renderWeekly(recs){
   scrollToLatest('weeklyScroll');
 
   $('weekBody').innerHTML = weeks.slice().reverse().map(w=>{
-    if(!w.any) return `<tr class="idle-row"><td class="taskname">${w.wk}</td><td colspan="5">No robot activity this week</td></tr>`;
+    if(!w.any) return `<tr class="idle-row"><td class="taskname">${w.wk}</td><td colspan="4">No robot activity this week</td></tr>`;
     return `<tr>
       <td class="taskname">${w.wk}</td>
       <td class="num">${w.valid}</td>
-      <td class="num">${w.failed}</td>
       <td class="num">${fmt(w.areaFt)}</td>
       <td class="num">${fmt(w.min/60,1)}</td>
       <td class="num">${w.valid ? fmt(w.compSum/w.valid,1)+'%' : '<span class="nd">—</span>'}</td>
@@ -1070,9 +1057,8 @@ function renderHist(){
   });
   $('histTable').classList.toggle('single', !(selectedVehicle==='all' && vehicleCountInScope()>1));
   $('histCount').textContent = `Showing ${rows.length} of ${recs.length} records`;
-  if(rows.length===0){ $('histBody').innerHTML = `<tr><td colspan="11" class="nd">No data in selected range</td></tr>`; return; }
+  if(rows.length===0){ $('histBody').innerHTML = `<tr><td colspan="10" class="nd">No data in selected range</td></tr>`; return; }
   $('histBody').innerHTML = rows.map(r=>{
-    const m = CAT_META[r.category];
     return `<tr>
       <td>${r.date}</td>
       <td>${r.start}</td>
@@ -1084,7 +1070,6 @@ function renderHist(){
       <td class="num">${fmt(r.actualAreaFt)}</td>
       <td class="num">${fmt(r.calcEffFt)}</td>
       <td class="num">${fmt(r.completion,1)}</td>
-      <td><span class="status ${r.category}"><span class="sd"></span>${m.label}</span></td>
     </tr>`;
   }).join('');
 }
@@ -1248,7 +1233,6 @@ function buildSourceTabs(){
 // =====================================================================
 const exportSel = {
   ds: {summary:true, vehicles:false, daily:true, weekly:false, area:false, history:true},
-  status: {real:true, aborted:true, failed:true},
   unit: 'sqft',
 };
 function toast(msg, err=false){
@@ -1265,14 +1249,13 @@ function datasetMeta(){
   const s = rangeStart(), e = rangeEnd();
   const vins = new Set(recs.map(r=>r.vin).filter(Boolean));
   const scopeVins = new Set(scopeRecs().map(r=>r.vin).filter(Boolean));
-  const st = {real:0, aborted:0, failed:0}; recs.forEach(r=>st[r.category]++);
   return [
     {id:'summary',  title:'Summary',            desc:'KPIs, data-updated date, last task and days without activity', count:'1 sheet'},
     {id:'vehicles', title:'Vehicle status',     desc:'Per vehicle: last task, days idle, tasks and area in range', count:plural(scopeVins.size,'vehicle')},
     {id:'daily',    title:'Daily performance',  desc:'One row per day, including days with no activity', count:plural(diffDays(s,e)+1,'day')},
     {id:'weekly',   title:'Weekly performance', desc:'One row per calendar week (Mon–Sun)', count:plural(weeklyAgg(recs,s,e).length,'week')},
     {id:'area',     title:'Cleaning by area / floor', desc:'Planned vs. actual area, completion and efficiency per area', count:plural(areaAgg(recs).length,'area')},
-    {id:'history',  title:'Task history',       desc:'Every task record', count:null, status:st},
+    {id:'history',  title:'Task history',       desc:'Every task record', count:null},
   ];
 }
 function openExport(){
@@ -1280,26 +1263,18 @@ function openExport(){
   $('dlgScope').innerHTML = exportScopeText();
   const meta = datasetMeta();
   $('dsList').innerHTML = meta.map(m=>{
-    const sub = m.id==='history' ? `
-      <div class="sub-opts ${exportSel.ds.history?'':'off'}" id="histSub">
-        <label><input type="checkbox" data-st="real" ${exportSel.status.real?'checked':''}> Valid cleaning (${m.status.real})</label>
-        <label><input type="checkbox" data-st="aborted" ${exportSel.status.aborted?'checked':''}> Aborted / test (${m.status.aborted})</label>
-        <label><input type="checkbox" data-st="failed" ${exportSel.status.failed?'checked':''}> Failed / incomplete (${m.status.failed})</label>
-      </div>` : '';
     return `<label class="opt"><input type="checkbox" data-ds="${m.id}" ${exportSel.ds[m.id]?'checked':''}>
-      <div class="t"><b>${m.title}</b><span>${m.desc}</span>${sub}</div>
+      <div class="t"><b>${m.title}</b><span>${m.desc}</span></div>
       <em id="cnt-${m.id}">${m.count||''}</em></label>`;
   }).join('');
   document.querySelector(`input[name="unit"][value="${exportSel.unit}"]`).checked = true;
   updateExportCounts();
   if(!dlg.open) dlg.showModal();
 }
-function selectedStatuses(){ return Object.keys(exportSel.status).filter(k=>exportSel.status[k]); }
 function updateExportCounts(){
   const recs = currentRecords;
-  const histN = recs.filter(r=>exportSel.status[r.category]).length;
+  const histN = recs.length;
   const el = $('cnt-history'); if(el) el.textContent = plural(histN,'row');
-  const hs = $('histSub'); if(hs) hs.classList.toggle('off', !exportSel.ds.history);
   const n = Object.values(exportSel.ds).filter(Boolean).length;
   $('dlgCount').textContent = n ? `${plural(n,'sheet')} selected` : 'Select at least one dataset';
   $('dlgGo').disabled = n===0;
@@ -1310,7 +1285,6 @@ $('exportDialog').addEventListener('click', e=>{ if(e.target===$('exportDialog')
 $('dsList').addEventListener('change', e=>{
   const i = e.target;
   if(i.dataset.ds) exportSel.ds[i.dataset.ds] = i.checked;
-  if(i.dataset.st) exportSel.status[i.dataset.st] = i.checked;
   updateExportCounts();
 });
 document.querySelectorAll('input[name="unit"]').forEach(r=>r.addEventListener('change', ()=>{ exportSel.unit = r.value; }));
@@ -1354,10 +1328,7 @@ function buildWorkbook(){
       ['Avg. task completion rate', r1(k.comp), '%'],
       ['Total actual cleaning time', r1(k.min/60), 'h'],
       ['Valid cleaning tasks', k.validCount, ''],
-      ['Aborted / test starts', k.aborted, ''],
-      ['Failed / incomplete tasks', k.failed, ''],
       ['Total task records', k.total, ''],
-      ['Failed + aborted share', r1(k.failRate), '%'],
     ];
     const ws = XLSX.utils.aoa_to_sheet(aoa); setCols(ws,[38,22,10]); add(ws,'Summary');
   }
@@ -1377,12 +1348,11 @@ function buildWorkbook(){
         'Last task': `${lastD.date} ${lastD.start}`,
         'Days since last task': f.demo ? '' : Math.max(0, diffDays(lastD.date, f.ref)),
         'Valid tasks (in range)': k.validCount,
-        'Failed / aborted (in range)': k.aborted+k.failed,
         [`Area cleaned (${U})`]: A(k.areaFt),
         'Cleaning time (h)': r1(k.min/60),
       };
     });
-    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[22,14,12,18,20,20,26,20,18]); add(ws,'Vehicle status');
+    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[22,14,12,18,20,20,18,18]); add(ws,'Vehicle status');
   }
 
   if(exportSel.ds.daily){
@@ -1392,25 +1362,23 @@ function buildWorkbook(){
       'Weekday': parseYmd(d.date).toLocaleDateString('en-US',{weekday:'short',timeZone:'UTC'}),
       'Status': d.any ? 'Active' : (!f.demo && lastDate && d.date>lastDate ? 'No activity (after last task)' : 'No tasks'),
       'Valid tasks': d.valid,
-      'Failed / aborted': d.failed,
       [`Area cleaned (${U})`]: A(d.areaFt),
       'Cleaning time (h)': r1(d.min/60),
       'Avg. completion (%)': d.valid ? r1(d.compSum/d.valid) : '',
       [`Efficiency (${U}/h)`]: d.min>0 ? A(d.areaFt/(d.min/60)) : '',
     }));
-    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[12,9,28,12,16,18,18,20,18]); add(ws,'Daily');
+    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[12,9,28,12,18,18,20,18]); add(ws,'Daily');
   }
 
   if(exportSel.ds.weekly){
     const rows = weeklyAgg(recs, s, e).map(w=>({
       'Week of (Mon)': w.wk,
       'Valid tasks': w.valid,
-      'Failed / aborted': w.failed,
       [`Area cleaned (${U})`]: A(w.areaFt),
       'Cleaning time (h)': r1(w.min/60),
       'Avg. completion (%)': w.valid ? r1(w.compSum/w.valid) : '',
     }));
-    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[14,12,16,18,18,20]); add(ws,'Weekly');
+    const ws = XLSX.utils.json_to_sheet(rows); setCols(ws,[14,12,18,18,20]); add(ws,'Weekly');
   }
 
   if(exportSel.ds.area){
@@ -1427,7 +1395,7 @@ function buildWorkbook(){
   }
 
   if(exportSel.ds.history){
-    const rows = recs.filter(r=>exportSel.status[r.category]).map(r=>({
+    const rows = recs.map(r=>({
       'Date': r.date,
       'Start': r.start,
       'End': r.end,
@@ -1438,10 +1406,9 @@ function buildWorkbook(){
       [`Actual (${U})`]: A(r.actualAreaFt),
       [`Efficiency (${U}/h)`]: A(r.calcEffFt),
       'Completion (%)': r1(r.completion),
-      'Status': CAT_META[r.category].label,
     }));
-    const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{'Date':'No records for the selected statuses'}]);
-    setCols(ws,[12,8,8,22,16,14,16,16,18,15,24]); add(ws,'Task History');
+    const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{'Date':'No records in range'}]);
+    setCols(ws,[12,8,8,22,16,14,16,16,18,15]); add(ws,'Task History');
   }
   return wb;
 }
